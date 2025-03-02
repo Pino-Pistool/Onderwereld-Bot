@@ -1,0 +1,26 @@
+[
+  {
+    "userId": "1257756397219610725",
+    "username": "medal.exe",
+    "klant": "Ali",
+    "bedrag": 800000,
+    "verliesPercentage": 15,
+    "resultaat": 680000,
+    "verlies": 120000,
+    "timestamp": 1740955613490,
+    "date": "2/3/2025, 23:46:54"
+  },
+  {
+    "userId": "1257756397219610725",
+    "username": "medal.exe",
+    "klant": "Ali I.",
+    "bedrag": 100000,
+    "verliesPercentage": 15,
+    "resultaat": 85000,
+    "verlies": 15000,
+    "timestamp": 1740872932501,
+    "date": "2/3/2025, 00:48:52",
+    "goedgekeurdDoor": "medal.exe",
+    "goedgekeurdDoorId": "1257756397219610725"
+  }
+]

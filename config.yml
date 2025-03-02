@@ -1,0 +1,41 @@
+token: MTM0NDc4Mzk2MTI4ODg2NzkwMA.GE9xVC.W--gEnYiKVN5mapgigXWrhQ1legk7hKBd-u5o4
+clientId: '1344783961288867900'
+licensekey: Z654-EB9C-U9AO-SDS1
+guildId: '1322010610157752451'
+newmemberchannel: ''
+leidingRol: '1345528112670314683'
+gangRol: '1345528092160168039'
+wapens:
+  types:
+    - Knuppel
+    - Knife
+    - Switchblade
+    - M1911
+    - Baretta 92
+    - Skorpion vz. 61
+    - Shotgun
+    - AK 47 (Assaultrifle)
+    - AK 12 (Assaultrifle MK2)
+    - QBZ 95 (Bullpuprifle)
+    - Famas G2 (Bullpuprifle MK2)
+logs:
+  general: ''
+  witwas: ''
+  drugs: ''
+  admin: ''
+  klanten: ''
+  aanvragen: ''
+  wapens: ''
+activity:
+  status: online
+  type: PLAYING
+  text: IDK
+drugs:
+  soorten:
+    - Wiet
+    - Coke
+    - Meth
+  standaardHoeveelheid: 2
+witwas:
+  percentage: 15
+  cooldown: 60
