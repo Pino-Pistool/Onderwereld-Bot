@@ -33,6 +33,7 @@ module.exports = {
     console.log(`  ${colors.yellow('•')} ${colors.bold.white('Gestart op:')}  ${colors.green(new Date().toLocaleString())}`);
     console.log(`  ${colors.yellow('•')} ${colors.bold.white('Bot gemaakt door:')}  ${colors.green("SM Development")}`);
     console.log(`  ${colors.yellow('•')} ${colors.bold.white('Discord:')}  ${colors.green('discord.gg/smdevelopment')}`);
+    console.log(`  ${colors.yellow('•')} ${colors.bold.white('T.O.S:')}  ${colors.green('Probeert u de bot te deobfusceren = license delete, Probeert u het licentie systeem te verwijderen = License delete')}`);
     console.log(colors.cyan('═'.repeat(60)) + '\n');
     
     if (client.config.logs) {
