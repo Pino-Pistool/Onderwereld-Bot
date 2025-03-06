@@ -22,12 +22,13 @@ module.exports = {
       
       let blacklist = [];
       try {
-        const blacklistData = fs.readFileSync(path.join(__dirname, '../blacklist.json'), 'utf8');
-        blacklist = JSON.parse(blacklistData);
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          console.error('Fout bij het lezen van blacklist.json:', err);
+        const blacklistPath = path.join(__dirname, '../blacklist.json');
+        if (fs.existsSync(blacklistPath)) {
+          const blacklistData = fs.readFileSync(blacklistPath, 'utf8');
+          blacklist = JSON.parse(blacklistData);
         }
+      } catch (err) {
+        console.error('Fout bij het lezen van blacklist.json:', err);
       }
 
       const isBlacklisted = blacklist.some(entry => entry.userId === interaction.user.id);
@@ -35,14 +36,15 @@ module.exports = {
         return interaction.reply({ content: 'Je staat op de blacklist en kunt geen wapen aanvragen!', ephemeral: true });
       }
       
-      interaction.user.lastSlashCommand = {
-        options: {
-          getString: (name) => {
-            if (name === 'datum') return interaction.options.getString('datum');
-            return null;
-          }
-        }
-      };
+      if (!interaction.client.userCommandData) {
+        interaction.client.userCommandData = new Map();
+      }
+      
+      interaction.client.userCommandData.set(interaction.user.id, {
+        commandName: 'wapenaanvraag',
+        datum: interaction.options.getString('datum'),
+        timestamp: Date.now()
+      });
       
       const datum = interaction.options.getString('datum');
       
