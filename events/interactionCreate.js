@@ -49,133 +49,174 @@ module.exports = {
         }
 
         if (interaction.customId === 'wapen_select') {
-          const wapenType = interaction.values[0];
-          const serienummer = interaction.message.content.match(/serienummer: (\S+)/i)?.[1];
-          const notitie = interaction.message.content.match(/notitie: (.+)/i)?.[1] || 'Geen notitie';
-          
-          if (!serienummer) {
-            return interaction.update({ 
-              content: 'Kon het serienummer niet vinden. Probeer opnieuw.', 
+          try {
+            const wapenType = interaction.values[0];
+            const serienummer = interaction.message.content.match(/serienummer: (\S+)/i)?.[1];
+            const notitie = interaction.message.content.match(/notitie: (.+)/i)?.[1] || 'Geen notitie';
+            
+            if (!serienummer) {
+              return interaction.update({ 
+                content: 'Kon het serienummer niet vinden. Probeer opnieuw.', 
+                components: [], 
+                ephemeral: true 
+              });
+            }
+            
+            const wapenlijstenPath = path.join(__dirname, '../wapenlijsten.json');
+            let wapenlijsten = {};
+            
+            if (fs.existsSync(wapenlijstenPath)) {
+              try {
+                const data = fs.readFileSync(wapenlijstenPath, 'utf8');
+                wapenlijsten = JSON.parse(data);
+              } catch (err) {
+                console.error('Fout bij het lezen van wapenlijsten.json:', err);
+              }
+            }
+            
+            if (!wapenlijsten[interaction.user.id]) {
+              wapenlijsten[interaction.user.id] = {
+                userId: interaction.user.id,
+                username: interaction.user.tag,
+                wapens: []
+              };
+            }
+            
+            const nieuwWapen = {
+              naam: wapenType,
+              serienummer: serienummer,
+              notitie: notitie,
+              toegevoegd: new Date().toLocaleString()
+            };
+            
+            wapenlijsten[interaction.user.id].wapens.push(nieuwWapen);
+            fs.writeFileSync(wapenlijstenPath, JSON.stringify(wapenlijsten, null, 2));
+            
+            const embed = new EmbedBuilder()
+              .setColor(0x00FF00)
+              .setTitle('🔫 Wapen Toegevoegd')
+              .setDescription(`Je hebt succesvol een wapen toegevoegd aan je wapenlijst.`)
+              .addFields(
+                { name: 'Wapen', value: wapenType, inline: true },
+                { name: 'Serienummer', value: serienummer, inline: true },
+                { name: 'Notitie', value: notitie, inline: true },
+                { name: 'Totaal wapens', value: `${wapenlijsten[interaction.user.id].wapens.length}`, inline: true }
+              )
+              .setTimestamp();
+            
+            await interaction.update({ content: null, embeds: [embed], components: [] });
+            
+            await interaction.client.stuurLog(
+              `👤 Gebruiker: <@${interaction.user.id}>\n` +
+              `🔫 Wapen toegevoegd: ${wapenType}\n` +
+              `🔢 Serienummer: ${serienummer}\n` +
+              `📝 Notitie: ${notitie}`,
+              'wapens'
+            );
+          } catch (error) {
+            console.error('Fout bij wapen_select:', error);
+            await interaction.update({ 
+              content: 'Er is een fout opgetreden bij het verwerken van je selectie.', 
               components: [], 
               ephemeral: true 
             });
           }
-          
-          let wapenlijsten = {};
-          try {
-            const data = fs.readFileSync(path.join(__dirname, '../wapenlijsten.json'), 'utf8');
-            wapenlijsten = JSON.parse(data);
-          } catch (err) {
-            if (err.code !== 'ENOENT') {
-              console.error('Fout bij het lezen van wapenlijsten.json:', err);
-            }
-          }
-          
-          if (!wapenlijsten[interaction.user.id]) {
-            wapenlijsten[interaction.user.id] = {
-              userId: interaction.user.id,
-              username: interaction.user.tag,
-              wapens: []
-            };
-          }
-          
-          const nieuwWapen = {
-            naam: wapenType,
-            serienummer: serienummer,
-            notitie: notitie,
-            toegevoegd: new Date().toLocaleString()
-          };
-          
-          wapenlijsten[interaction.user.id].wapens.push(nieuwWapen);
-          fs.writeFileSync(path.join(__dirname, '../wapenlijsten.json'), JSON.stringify(wapenlijsten, null, 2));
-          
-          const embed = new EmbedBuilder()
-            .setColor(0x00FF00)
-            .setTitle('🔫 Wapen Toegevoegd')
-            .setDescription(`Je hebt succesvol een wapen toegevoegd aan je wapenlijst.`)
-            .addFields(
-              { name: 'Wapen', value: wapenType, inline: true },
-              { name: 'Serienummer', value: serienummer, inline: true },
-              { name: 'Notitie', value: notitie, inline: true },
-              { name: 'Totaal wapens', value: `${wapenlijsten[interaction.user.id].wapens.length}`, inline: true }
-            )
-            .setTimestamp();
-          
-          await interaction.update({ content: null, embeds: [embed], components: [] });
-          
-          await interaction.client.stuurLog(
-            `👤 Gebruiker: <@${interaction.user.id}>\n` +
-            `🔫 Wapen toegevoegd: ${wapenType}\n` +
-            `🔢 Serienummer: ${serienummer}\n` +
-            `📝 Notitie: ${notitie}`,
-            'wapens'
-          );
         }
       }
       
       if (interaction.isModalSubmit()) {
         if (interaction.customId.startsWith('wapen_reden_modal_')) {
-          const wapenType = interaction.customId.replace('wapen_reden_modal_', '');
-          const reden = interaction.fields.getTextInputValue('reden_input');
-          const datum = interaction.user.lastSlashCommand?.options.getString('datum') || 'Niet gespecificeerd';
-          
-          const requestEmbed = new EmbedBuilder()
-            .setColor('#ff9900')
-            .setTitle('Wapen Aanvraag')
-            .setDescription(`Een nieuw wapen is aangevraagd door ${interaction.user}`)
-            .addFields(
-              { name: 'Wapen', value: wapenType, inline: true },
-              { name: 'Datum Nodig', value: datum, inline: true },
-              { name: 'Reden', value: reden },
-              { name: 'Aanvrager', value: `<@${interaction.user.id}>` }
-            )
-            .setTimestamp();
-          
-          const buttons = new ActionRowBuilder()
-            .addComponents(
-              new ButtonBuilder()
-                .setCustomId(`approve_wapen_${interaction.user.id}_${Date.now()}`)
-                .setLabel('Goedkeuren')
-                .setStyle(ButtonStyle.Success),
-              new ButtonBuilder()
-                .setCustomId(`deny_wapen_${interaction.user.id}_${Date.now()}`)
-                .setLabel('Afwijzen')
-                .setStyle(ButtonStyle.Danger)
+          try {
+            const wapenType = interaction.customId.replace('wapen_reden_modal_', '');
+            const reden = interaction.fields.getTextInputValue('reden_input');
+            
+            let datum = 'Niet gespecificeerd';
+            if (client.userCommandData && client.userCommandData.has(interaction.user.id)) {
+              const userData = client.userCommandData.get(interaction.user.id);
+              if (userData.commandName === 'wapenaanvraag' && userData.datum) {
+                datum = userData.datum;
+              }
+            }
+            
+            const requestEmbed = new EmbedBuilder()
+              .setColor('#ff9900')
+              .setTitle('Wapen Aanvraag')
+              .setDescription(`Een nieuw wapen is aangevraagd door ${interaction.user}`)
+              .addFields(
+                { name: 'Wapen', value: wapenType, inline: true },
+                { name: 'Datum Nodig', value: datum, inline: true },
+                { name: 'Reden', value: reden },
+                { name: 'Aanvrager', value: `<@${interaction.user.id}>` }
+              )
+              .setTimestamp();
+            
+            const buttons = new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`approve_wapen_${interaction.user.id}_${Date.now()}`)
+                  .setLabel('Goedkeuren')
+                  .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                  .setCustomId(`deny_wapen_${interaction.user.id}_${Date.now()}`)
+                  .setLabel('Afwijzen')
+                  .setStyle(ButtonStyle.Danger)
+              );
+            
+            const aanvraagKanaal = client.channels.cache.get(client.config.logs.aanvragen);
+            if (!aanvraagKanaal) {
+              return interaction.reply({ 
+                content: 'Kon het aanvraag kanaal niet vinden. Contacteer een administrator.', 
+                ephemeral: true 
+              });
+            }
+            
+            await aanvraagKanaal.send({ embeds: [requestEmbed], components: [buttons] });
+            
+            await client.stuurLog(
+              `Nieuwe wapenaanvraag van ${interaction.user.tag} (${interaction.user.id}):\n` +
+              `Wapen: ${wapenType}\n` +
+              `Datum: ${datum}\n` +
+              `Reden: ${reden}`,
+              'wapens'
             );
-          
-          const aanvraagKanaal = client.channels.cache.get(client.config.logs.aanvragen);
-          if (!aanvraagKanaal) {
-            return interaction.reply({ 
-              content: 'Kon het aanvraag kanaal niet vinden. Contacteer een administrator.', 
+            
+            await interaction.reply({ 
+              content: `Je aanvraag voor ${wapenType} is ingediend en wordt beoordeeld door de gang leiding.`, 
+              ephemeral: true 
+            });
+          } catch (error) {
+            console.error('Fout bij wapen_reden_modal:', error);
+            await interaction.reply({ 
+              content: 'Er is een fout opgetreden bij het verwerken van je aanvraag.', 
               ephemeral: true 
             });
           }
-          
-          await aanvraagKanaal.send({ embeds: [requestEmbed], components: [buttons] });
-          
-          await client.stuurLog(
-            `Nieuwe wapenaanvraag van ${interaction.user.tag} (${interaction.user.id}):\n` +
-            `Wapen: ${wapenType}\n` +
-            `Datum: ${datum}\n` +
-            `Reden: ${reden}`,
-            'wapens'
-          );
-          
-          await interaction.reply({ 
-            content: `Je aanvraag voor ${wapenType} is ingediend en wordt beoordeeld door de gang leiding.`, 
-            ephemeral: true 
-          });
         }
         
         if (interaction.customId.startsWith('approve_modal_')) {
-          const [_, __, userId, timestamp] = interaction.customId.split('_');
-          
-          const location = interaction.fields.getTextInputValue('location');
-          const datetime = interaction.fields.getTextInputValue('datetime');
-          const price = interaction.fields.getTextInputValue('price');
-          
           try {
-            const targetUser = await client.users.fetch(userId);
+            const parts = interaction.customId.split('_');
+            if (parts.length < 4) {
+              return interaction.reply({ 
+                content: 'Ongeldige interactie ID.', 
+                ephemeral: true 
+              });
+            }
+            
+            const userId = parts[2];
+            const timestamp = parts[3];
+            
+            const location = interaction.fields.getTextInputValue('location');
+            const datetime = interaction.fields.getTextInputValue('datetime');
+            const price = interaction.fields.getTextInputValue('price');
+            
+            const targetUser = await client.users.fetch(userId).catch(() => null);
+            if (!targetUser) {
+              return interaction.reply({ 
+                content: 'Kon de gebruiker niet vinden.', 
+                ephemeral: true 
+              });
+            }
             
             const approvalEmbed = new EmbedBuilder()
               .setColor('#00ff00')
@@ -196,8 +237,23 @@ module.exports = {
             });
             
             const message = interaction.message;
+            if (!message) {
+              return interaction.reply({ 
+                content: 'Kon het originele bericht niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
             const originalEmbed = message.embeds[0];
-            const wapenType = originalEmbed.fields.find(field => field.name === 'Wapen')?.value || 'Onbekend wapen';
+            if (!originalEmbed) {
+              return interaction.reply({ 
+                content: 'Kon de originele embed niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
+            const wapenField = originalEmbed.fields.find(field => field.name === 'Wapen');
+            const wapenType = wapenField ? wapenField.value : 'Onbekend wapen';
             
             const updatedEmbed = EmbedBuilder.from(originalEmbed)
               .setColor('#00ff00')
@@ -230,18 +286,33 @@ module.exports = {
             
             await interaction.reply({ content: 'Wapen aanvraag goedgekeurd en gebruiker geïnformeerd.', ephemeral: true });
           } catch (error) {
-            console.error('Fout bij goedkeuren wapenaanvraag:', error);
+            console.error('Fout bij approve_modal:', error);
             await interaction.reply({ content: 'Er is een fout opgetreden bij het goedkeuren van de wapenaanvraag.', ephemeral: true });
           }
         }
         
         if (interaction.customId.startsWith('deny_modal_')) {
-          const [_, __, userId, timestamp] = interaction.customId.split('_');
-          
-          const reason = interaction.fields.getTextInputValue('reason');
-          
           try {
-            const targetUser = await client.users.fetch(userId);
+            const parts = interaction.customId.split('_');
+            if (parts.length < 4) {
+              return interaction.reply({ 
+                content: 'Ongeldige interactie ID.', 
+                ephemeral: true 
+              });
+            }
+            
+            const userId = parts[2];
+            const timestamp = parts[3];
+            
+            const reason = interaction.fields.getTextInputValue('reason');
+            
+            const targetUser = await client.users.fetch(userId).catch(() => null);
+            if (!targetUser) {
+              return interaction.reply({ 
+                content: 'Kon de gebruiker niet vinden.', 
+                ephemeral: true 
+              });
+            }
             
             const denialEmbed = new EmbedBuilder()
               .setColor('#ff0000')
@@ -260,7 +331,25 @@ module.exports = {
             });
             
             const message = interaction.message;
-            const updatedEmbed = EmbedBuilder.from(message.embeds[0])
+            if (!message) {
+              return interaction.reply({ 
+                content: 'Kon het originele bericht niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
+            const originalEmbed = message.embeds[0];
+            if (!originalEmbed) {
+              return interaction.reply({ 
+                content: 'Kon de originele embed niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
+            const wapenField = originalEmbed.fields.find(field => field.name === 'Wapen');
+            const wapenType = wapenField ? wapenField.value : 'Onbekend wapen';
+            
+            const updatedEmbed = EmbedBuilder.from(originalEmbed)
               .setColor('#ff0000')
               .addFields(
                 { name: 'Status', value: 'Afgewezen' },
@@ -272,13 +361,14 @@ module.exports = {
             
             await client.stuurLog(
               `Wapen aanvraag van <@${userId}> is afgewezen door ${interaction.user.tag}\n` +
+              `Wapen: ${wapenType}\n` +
               `Reden: ${reason}`,
               'wapens'
             );
             
             await interaction.reply({ content: 'Wapen aanvraag afgewezen en gebruiker geïnformeerd.', ephemeral: true });
           } catch (error) {
-            console.error('Fout bij afwijzen wapenaanvraag:', error);
+            console.error('Fout bij deny_modal:', error);
             await interaction.reply({ content: 'Er is een fout opgetreden bij het afwijzen van de wapenaanvraag.', ephemeral: true });
           }
         }
@@ -286,94 +376,140 @@ module.exports = {
       
       if (interaction.isButton()) {
         if (interaction.customId.startsWith('approve_wapen_')) {
-          if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
-            return interaction.reply({
-              content: 'Alleen gang leiding kan deze actie uitvoeren.',
-              ephemeral: true
-            });
+          try {
+            if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
+              return interaction.reply({
+                content: 'Alleen gang leiding kan deze actie uitvoeren.',
+                ephemeral: true
+              });
+            }
+            
+            const parts = interaction.customId.split('_');
+            if (parts.length < 4) {
+              return interaction.reply({ 
+                content: 'Ongeldige interactie ID.', 
+                ephemeral: true 
+              });
+            }
+            
+            const userId = parts[2];
+            const timestamp = parts[3];
+            
+            const modal = new ModalBuilder()
+              .setCustomId(`approve_modal_${userId}_${timestamp}`)
+              .setTitle('Wapen Goedkeuren');
+              
+            const locationInput = new TextInputBuilder()
+              .setCustomId('location')
+              .setLabel('Locatie voor overdracht')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+              
+            const dateTimeInput = new TextInputBuilder()
+              .setCustomId('datetime')
+              .setLabel('Datum en tijd voor overdracht')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+              
+            const priceInput = new TextInputBuilder()
+              .setCustomId('price')
+              .setLabel('Prijs')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+              
+            const firstRow = new ActionRowBuilder().addComponents(locationInput);
+            const secondRow = new ActionRowBuilder().addComponents(dateTimeInput);
+            const thirdRow = new ActionRowBuilder().addComponents(priceInput);
+            
+            modal.addComponents(firstRow, secondRow, thirdRow);
+            
+            await interaction.showModal(modal);
+          } catch (error) {
+            console.error('Fout bij approve_wapen button:', error);
+            await interaction.reply({ content: 'Er is een fout opgetreden bij het verwerken van de goedkeuring.', ephemeral: true });
           }
-          
-          const [_, __, userId, timestamp] = interaction.customId.split('_');
-          
-          const modal = new ModalBuilder()
-            .setCustomId(`approve_modal_${userId}_${timestamp}`)
-            .setTitle('Wapen Goedkeuren');
-            
-          const locationInput = new TextInputBuilder()
-            .setCustomId('location')
-            .setLabel('Locatie voor overdracht')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-            
-          const dateTimeInput = new TextInputBuilder()
-            .setCustomId('datetime')
-            .setLabel('Datum en tijd voor overdracht')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-            
-          const priceInput = new TextInputBuilder()
-            .setCustomId('price')
-            .setLabel('Prijs')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-            
-          const firstRow = new ActionRowBuilder().addComponents(locationInput);
-          const secondRow = new ActionRowBuilder().addComponents(dateTimeInput);
-          const thirdRow = new ActionRowBuilder().addComponents(priceInput);
-          
-          modal.addComponents(firstRow, secondRow, thirdRow);
-          
-          await interaction.showModal(modal);
         }
         
         if (interaction.customId.startsWith('deny_wapen_')) {
-          if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
-            return interaction.reply({
-              content: 'Alleen gang leiding kan deze actie uitvoeren.',
-              ephemeral: true
-            });
+          try {
+            if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
+              return interaction.reply({
+                content: 'Alleen gang leiding kan deze actie uitvoeren.',
+                ephemeral: true
+              });
+            }
+            
+            const parts = interaction.customId.split('_');
+            if (parts.length < 4) {
+              return interaction.reply({ 
+                content: 'Ongeldige interactie ID.', 
+                ephemeral: true 
+              });
+            }
+            
+            const userId = parts[2];
+            const timestamp = parts[3];
+            
+            const modal = new ModalBuilder()
+              .setCustomId(`deny_modal_${userId}_${timestamp}`)
+              .setTitle('Wapen Afwijzen');
+              
+            const reasonInput = new TextInputBuilder()
+              .setCustomId('reason')
+              .setLabel('Reden voor afwijzing')
+              .setStyle(TextInputStyle.Paragraph)
+              .setRequired(true);
+              
+            const firstRow = new ActionRowBuilder().addComponents(reasonInput);
+            
+            modal.addComponents(firstRow);
+            
+            await interaction.showModal(modal);
+          } catch (error) {
+            console.error('Fout bij deny_wapen button:', error);
+            await interaction.reply({ content: 'Er is een fout opgetreden bij het verwerken van de afwijzing.', ephemeral: true });
           }
-          
-          const [_, __, userId, timestamp] = interaction.customId.split('_');
-          
-          const modal = new ModalBuilder()
-            .setCustomId(`deny_modal_${userId}_${timestamp}`)
-            .setTitle('Wapen Afwijzen');
-            
-          const reasonInput = new TextInputBuilder()
-            .setCustomId('reason')
-            .setLabel('Reden voor afwijzing')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-            
-          const firstRow = new ActionRowBuilder().addComponents(reasonInput);
-          
-          modal.addComponents(firstRow);
-          
-          await interaction.showModal(modal);
         }
         
         if (interaction.customId.startsWith('lever_wapen_')) {
-          if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
-            return interaction.reply({
-              content: 'Alleen gang leiding kan deze actie uitvoeren.',
-              ephemeral: true
-            });
-          }
-          
-          const [_, __, userId, wapenType, timestamp] = interaction.customId.split('_');
-          
           try {
-            const targetUser = await client.users.fetch(userId);
+            if (!interaction.member.roles.cache.has(client.config.leidingRol)) {
+              return interaction.reply({
+                content: 'Alleen gang leiding kan deze actie uitvoeren.',
+                ephemeral: true
+              });
+            }
+            
+            const parts = interaction.customId.split('_');
+            if (parts.length < 5) {
+              return interaction.reply({ 
+                content: 'Ongeldige interactie ID.', 
+                ephemeral: true 
+              });
+            }
+            
+            const userId = parts[2];
+            const wapenType = parts[3];
+            const timestamp = parts[4];
+            
+            const targetUser = await client.users.fetch(userId).catch(() => null);
+            if (!targetUser) {
+              return interaction.reply({ 
+                content: 'Kon de gebruiker niet vinden.', 
+                ephemeral: true 
+              });
+            }
             
             const serienummer = `WPN-${Math.floor(100000 + Math.random() * 900000)}`;
             
+            const wapenlijstenPath = path.join(__dirname, '../wapenlijsten.json');
             let wapenlijsten = {};
-            try {
-              const data = fs.readFileSync(path.join(__dirname, '../wapenlijsten.json'), 'utf8');
-              wapenlijsten = JSON.parse(data);
-            } catch (err) {
-              if (err.code !== 'ENOENT') {
+            
+            if (fs.existsSync(wapenlijstenPath)) {
+              try {
+                const data = fs.readFileSync(wapenlijstenPath, 'utf8');
+                wapenlijsten = JSON.parse(data);
+              } catch (err) {
                 console.error('Fout bij het lezen van wapenlijsten.json:', err);
               }
             }
@@ -394,10 +530,25 @@ module.exports = {
             };
             
             wapenlijsten[userId].wapens.push(nieuwWapen);
-            fs.writeFileSync(path.join(__dirname, '../wapenlijsten.json'), JSON.stringify(wapenlijsten, null, 2));
+            fs.writeFileSync(wapenlijstenPath, JSON.stringify(wapenlijsten, null, 2));
             
             const message = interaction.message;
-            const updatedEmbed = EmbedBuilder.from(message.embeds[0])
+            if (!message) {
+              return interaction.reply({ 
+                content: 'Kon het originele bericht niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
+            const originalEmbed = message.embeds[0];
+            if (!originalEmbed) {
+              return interaction.reply({ 
+                content: 'Kon de originele embed niet vinden.', 
+                ephemeral: true 
+              });
+            }
+            
+            const updatedEmbed = EmbedBuilder.from(originalEmbed)
               .addFields(
                 { name: 'Leveringsstatus', value: 'Geleverd' },
                 { name: 'Geleverd door', value: interaction.user.tag },
@@ -437,7 +588,7 @@ module.exports = {
               ephemeral: true 
             });
           } catch (error) {
-            console.error('Fout bij leveren van wapen:', error);
+            console.error('Fout bij lever_wapen button:', error);
             await interaction.reply({ content: 'Er is een fout opgetreden bij het leveren van het wapen.', ephemeral: true });
           }
         }
