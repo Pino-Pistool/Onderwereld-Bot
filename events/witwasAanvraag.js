@@ -1,75 +1,66 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { StringSelectMenuBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('wapenaanvraag')
-    .setDescription('Vraag een wapen aan bij de leiding')
-    .addStringOption(option =>
-      option.setName('datum')
-        .setDescription('Wanneer heb je het wapen nodig (bijv. "morgen", "vrijdag 20:00")')
-        .setRequired(true)),
-  
   async execute(interaction) {
     try {
-      const { wapens, logs, leidingRol } = interaction.client.config;
-      
-      const geautoriseerdeLedenOp = interaction.client.haalGeautoriseerdeLedenOp();
-      if (!geautoriseerdeLedenOp.includes(interaction.user.id)) {
-        return interaction.reply({ content: 'Je bent niet geautoriseerd om dit commando te gebruiken!', ephemeral: true });
-      }
-      
-      let blacklist = [];
-      try {
-        const blacklistData = fs.readFileSync(path.join(__dirname, '../blacklist.json'), 'utf8');
-        blacklist = JSON.parse(blacklistData);
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          console.error('Fout bij het lezen van blacklist.json:', err);
-        }
+      const modal = new ModalBuilder()
+        .setCustomId('witwas_aanvraag_modal')
+        .setTitle('Aanvraag nieuwe witwas');
+
+      const redenInput = new TextInputBuilder()
+        .setCustomId('reden_input')
+        .setLabel('Waarom wil je nu witwassen?')
+        .setPlaceholder('Geef een goede reden...')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+
+      const percentageInput = new TextInputBuilder()
+        .setCustomId('percentage_input')
+        .setLabel('Verliespercentage (1-100%)')
+        .setPlaceholder('Voer een getal in tussen 1 en 100')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      const redenRow = new ActionRowBuilder().addComponents(redenInput);
+      const percentageRow = new ActionRowBuilder().addComponents(percentageInput);
+      modal.addComponents(redenRow, percentageRow);
+
+      await interaction.showModal(modal);
+    } catch (error) {
+      console.error('Fout bij openen van de modal:', error);
+    }
+  },
+
+  async handleModal(interaction) {
+    try {
+      const reden = interaction.fields.getTextInputValue('reden_input');
+      const percentage = parseInt(interaction.fields.getTextInputValue('percentage_input'));
+
+      if (isNaN(percentage) || percentage < 1 || percentage > 100) {
+        return interaction.reply({ content: 'Het percentage moet tussen 1 en 100 liggen.', ephemeral: true });
       }
 
-      const isBlacklisted = blacklist.some(entry => entry.userId === interaction.user.id);
-      if (isBlacklisted) {
-        return interaction.reply({ content: 'Je staat op de blacklist en kunt geen wapen aanvragen!', ephemeral: true });
+      // Verwerk de aanvraag (stuur bijvoorbeeld een bericht naar een admin kanaal)
+      const leidingRol = interaction.client.config.leidingRol;
+      const aanvraagEmbed = new EmbedBuilder()
+        .setColor(0xFF9900)
+        .setTitle('🔄 Witwas Aanvraag')
+        .setDescription(`${interaction.user} heeft een witwas aanvraag ingediend.`)
+        .addFields(
+          { name: 'Reden', value: reden },
+          { name: 'Aangevraagd Percentage', value: `${percentage}%` }
+        )
+        .setTimestamp();
+
+      const aanvraagKanaal = interaction.client.channels.cache.get(interaction.client.config.logs.aanvragen);
+      if (aanvraagKanaal) {
+        await aanvraagKanaal.send({ content: `<@&${leidingRol}> Er is een nieuwe aanvraag!`, embeds: [aanvraagEmbed] });
       }
-      
-      const datum = interaction.options.getString('datum');
-      
-      const wapenTypes = wapens && wapens.types ? wapens.types : ["Pistool", "Shotgun", "SMG", "Assault Rifle", "Sniper Rifle"];
 
-      const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('wapen_aanvraag_select')
-        .setPlaceholder('Selecteer een wapentype')
-        .addOptions(wapenTypes.map(type => ({
-          label: type,
-          value: type,
-          description: `Vraag een ${type} aan (reden volgt)`
-        })));
-
-      const row = new ActionRowBuilder().addComponents(selectMenu);
-
-       await interaction.reply({
-            content: `Selecteer het type wapen dat je wilt aanvragen en geef een reden:`,
-            components: [row],
-            ephemeral: true
-        });
-    }  catch (error) {
-      console.error('Fout bij het uitvoeren van wapenaanvraag:', error);
-      try {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: 'Er is een fout opgetreden bij het uitvoeren van dit commando.',
-            ephemeral: true
-          });
-        } else {
-          await interaction.followUp({ content: 'Er is een fout opgetreden bij het uitvoeren van dit commando.', ephemeral: true });
-        }
-      } catch (replyError) {
-        console.error('Fout bij reply:', replyError);
-      }
+      await interaction.reply({ content: 'Je aanvraag is ingediend! De leiding is op de hoogte gebracht.', ephemeral: true });
+    } catch (error) {
+      console.error('Fout bij verwerken van de modal:', error);
+      await interaction.reply({ content: 'Er is iets misgegaan met je aanvraag.', ephemeral: true });
     }
   }
 };
