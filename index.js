@@ -4,7 +4,6 @@ const yaml = require('js-yaml');
 const path = require('path');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const axios = require('axios');
 
 
 const configPad = path.join(__dirname, 'config.yml');
@@ -22,53 +21,6 @@ const client = new Client({
 
 client.commands = new Collection();
 client.config = config;
-async function authenticeer() {
-    try {
-        const url = 'http://45.137.205.172:256/api/client';
-        const licensekey = config.licensekey;
-        const product = 'OW_Bot';
-        const api_key = 'xJkBNcqDc4QtBz90bjhN7ZrYUWGHWOY0';
-        const hwid = 'PC_IDENTIFIER';
-
-        const res = await axios.post(
-            url,
-            {
-                licensekey,
-                product,
-                hwid
-            },
-            { headers: { Authorization: api_key }}
-        );
-
-        if (!res.data.status_code || !res.data.status_id) {
-            console.log("――――――――――――――――――――――――――――――――――――");
-            console.log('\x1b[31m%s\x1b[0m', 'Je licentiesleutel is ongeldig!');
-            console.log('\x1b[31m%s\x1b[0m', `Maak een ticket aan in onze discord server om er een te krijgen.`);
-            console.log("――――――――――――――――――――――――――――――――――――");
-            return process.exit(1)
-        }
-
-        if (res.data.status_overview !== "success") {
-            console.log("――――――――――――――――――――――――――――――――――――");
-            console.log('\x1b[31m%s\x1b[0m', 'Je licentiesleutel is ongeldig!');
-            console.log('\x1b[31m%s\x1b[0m', `Maak een ticket aan in onze discord server om er een te krijgen.`);
-            console.log("――――――――――――――――――――――――――――――――――――");
-            return false;
-        } else {
-            console.log("――――――――――――――――――――――――――――――――――――");
-            console.log('\x1b[32m%s\x1b[0m', 'Je licentiesleutel is geldig!');
-            console.log('\x1b[36m%s\x1b[0m', "Discord ID: " + res.data.discord_id);
-            console.log("――――――――――――――――――――――――――――――――――――");
-            return true;
-        }
-    } catch (error) {
-        console.log("――――――――――――――――――――――――――――――――――――");
-        console.log('\x1b[31m%s\x1b[0m', 'Licentie authenticatie mislukt');
-        console.log("――――――――――――――――――――――――――――――――――――");
-        //console.log(error);
-        return false;
-    }
-}
 
 const haalGeautoriseerdeLedenOp = () => {
   try {
@@ -117,12 +69,6 @@ const rest = new REST({ version: '9' }).setToken(token);
 
 (async () => {
   try {
-    const isAuthenticated = await authenticeer();
-    
-    if (!isAuthenticated) {
-      console.log('\x1b[31m%s\x1b[0m', 'Authenticatie mislukt. Bot wordt niet gestart.');
-      return process.exit(1);
-    }
     
     console.log('Slash commandos registreren...');
     const commandos = client.commands.map(commando => commando.data.toJSON());
@@ -140,6 +86,7 @@ const rest = new REST({ version: '9' }).setToken(token);
     process.exit(1);
   }
 })();
+
 
 const stuurLog = async (bericht, logType = 'general') => {
   if (!config.logs) {
